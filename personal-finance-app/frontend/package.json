@@ -1,0 +1,11 @@
+{
+  "name": "personal-finance-frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "echo \"Frontend starting...\"",
+    "build": "echo \"Building...\"",
+    "preview": "echo \"Preview...\""
+  }
+}
