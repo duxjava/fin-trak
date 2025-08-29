@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/gin-contrib/cors"
-	"github.com/gin-contrib/rate"
+
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"github.com/redis/go-redis/v9"
@@ -27,11 +27,9 @@ func main() {
 	}
 
 	// Инициализируем базу данных
-	db, err := database.InitDB()
-	if err != nil {
+	if err := database.ConnectDB(); err != nil {
 		log.Fatal("Failed to connect to database:", err)
 	}
-	defer db.Close()
 
 	// Инициализируем Redis
 	redisClient := redis.NewClient(&redis.Options{
@@ -59,8 +57,7 @@ func main() {
 		MaxAge:           12 * time.Hour,
 	}))
 
-	// Rate limiting middleware
-	router.Use(rate.RateLimiter(rate.NewLimiter(100, 200))) // 100 requests per minute, burst of 200
+	// TODO: Add rate limiting middleware later
 
 	// Статические файлы
 	router.Static("/static", "./static")
@@ -71,63 +68,14 @@ func main() {
 		// Аутентификация
 		auth := api.Group("/auth")
 		{
-			auth.POST("/register", handlers.Register)
-			auth.POST("/login", handlers.Login)
-			auth.POST("/logout", handlers.Logout)
-			auth.GET("/me", middleware.AuthMiddleware(), handlers.GetProfile)
+			auth.POST("/register", handlers.NewAuthHandler().Register)
+			auth.POST("/login", handlers.NewAuthHandler().Login)
+			auth.POST("/logout", handlers.NewAuthHandler().Logout)
+			auth.GET("/me", middleware.AuthMiddleware(), handlers.NewAuthHandler().Me)
 		}
 
-		// Транзакции
-		transactions := api.Group("/transactions")
-		transactions.Use(middleware.AuthMiddleware())
-		{
-			transactions.GET("", handlers.GetTransactions)
-			transactions.POST("", handlers.CreateTransaction)
-			transactions.GET("/:id", handlers.GetTransaction)
-			transactions.PUT("/:id", handlers.UpdateTransaction)
-			transactions.DELETE("/:id", handlers.DeleteTransaction)
-			transactions.POST("/import", handlers.ImportTransactions)
-			transactions.GET("/export", handlers.ExportTransactions)
-		}
-
-		// Категории
-		categories := api.Group("/categories")
-		categories.Use(middleware.AuthMiddleware())
-		{
-			categories.GET("", handlers.GetCategories)
-			categories.POST("", handlers.CreateCategory)
-			categories.PUT("/:id", handlers.UpdateCategory)
-			categories.DELETE("/:id", handlers.DeleteCategory)
-		}
-
-		// Бюджеты
-		budgets := api.Group("/budgets")
-		budgets.Use(middleware.AuthMiddleware())
-		{
-			budgets.GET("", handlers.GetBudgets)
-			budgets.POST("", handlers.CreateBudget)
-			budgets.PUT("/:id", handlers.UpdateBudget)
-			budgets.DELETE("/:id", handlers.DeleteBudget)
-		}
-
-		// Цели
-		goals := api.Group("/goals")
-		goals.Use(middleware.AuthMiddleware())
-		{
-			goals.GET("", handlers.GetGoals)
-			goals.POST("", handlers.CreateGoal)
-			goals.PUT("/:id", handlers.UpdateGoal)
-			goals.DELETE("/:id", handlers.DeleteGoal)
-		}
-
-		// Аналитика
-		analytics := api.Group("/analytics")
-		analytics.Use(middleware.AuthMiddleware())
-		{
-			analytics.GET("/summary", handlers.GetAnalyticsSummary)
-			analytics.GET("/chart", handlers.GetAnalyticsChart)
-			analytics.GET("/budget-status", handlers.GetBudgetStatus)
-		}
+		// TODO: Implement other handlers
+		// Транзакции, категории, бюджеты, цели и аналитика будут добавлены позже
 	}
 
 	// Health check

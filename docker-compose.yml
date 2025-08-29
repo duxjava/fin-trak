@@ -35,11 +35,7 @@ services:
       dockerfile: Dockerfile
     container_name: personal_finance_backend
     environment:
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_USER=postgres
-      - DB_PASSWORD=password
-      - DB_NAME=personal_finance
+      - DB_URL=postgres://postgres:password@postgres:5432/personal_finance?sslmode=disable
       - REDIS_ADDR=redis:6379
       - REDIS_PASSWORD=
       - PORT=8080

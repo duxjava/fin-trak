@@ -1,195 +1,76 @@
+// User model
 export interface User {
   id: string;
   email: string;
-  firstName: string;
-  lastName: string;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
 }
 
-export interface Category {
-  id: string;
-  userId: string;
-  name: string;
-  color: string;
-  icon: string;
-  createdAt: string;
-  updatedAt: string;
-}
+// Transaction model
+export type TransactionType = 'income' | 'expense';
 
 export interface Transaction {
   id: string;
-  userId: string;
+  user_id: string;
   amount: number;
-  type: 'income' | 'expense';
-  categoryId: string;
-  description?: string;
+  category: string;
+  type: TransactionType;
   date: string;
-  createdAt: string;
-  updatedAt: string;
-  category?: Category;
+  description?: string;
+  created_at: string;
+  updated_at: string;
+  user?: User;
 }
 
+// Budget model
 export interface Budget {
   id: string;
-  userId: string;
-  categoryId: string;
+  user_id: string;
+  category: string;
   amount: number;
   month: number;
   year: number;
-  createdAt: string;
-  updatedAt: string;
-  category?: Category;
-  spent?: number;
-  remaining?: number;
+  created_at: string;
+  updated_at: string;
+  user?: User;
 }
 
+// Goal model
 export interface Goal {
   id: string;
-  userId: string;
+  user_id: string;
   title: string;
-  description?: string;
-  targetAmount: number;
-  currentAmount: number;
-  deadline: string;
-  createdAt: string;
-  updatedAt: string;
-  progress?: number;
-  daysLeft?: number;
-  isCompleted?: boolean;
+  target_amount: number;
+  current_amount: number;
+  deadline?: string;
+  created_at: string;
+  updated_at: string;
+  user?: User;
 }
 
-export interface AnalyticsSummary {
-  totalIncome: number;
-  totalExpenses: number;
-  netAmount: number;
-  transactionsCount: number;
-  period: string;
+// Authentication types
+export interface RegisterRequest {
+  email: string;
+  password: string;
 }
 
-export interface ChartData {
-  labels: string[];
-  datasets: Dataset[];
-}
-
-export interface Dataset {
-  label: string;
-  data: number[];
-  color: string;
-}
-
-export interface BudgetStatus {
-  categoryId: string;
-  categoryName: string;
-  budgetAmount: number;
-  spentAmount: number;
-  remaining: number;
-  percentage: number;
-  isOverBudget: boolean;
-}
-
-// API Request/Response types
 export interface LoginRequest {
   email: string;
   password: string;
 }
 
-export interface RegisterRequest {
-  email: string;
-  password: string;
-  firstName: string;
-  lastName: string;
+export interface AuthResponse {
+  user: User;
+  token: string;
 }
 
-export interface TransactionRequest {
-  amount: number;
-  type: 'income' | 'expense';
-  categoryId: string;
-  description?: string;
-  date: string;
+export interface ErrorResponse {
+  error: string;
 }
 
-export interface CategoryRequest {
-  name: string;
-  color?: string;
-  icon?: string;
-}
-
-export interface BudgetRequest {
-  categoryId: string;
-  amount: number;
-  month: number;
-  year: number;
-}
-
-export interface GoalRequest {
-  title: string;
-  description?: string;
-  targetAmount: number;
-  deadline: string;
-}
-
-// API Response types
+// API response types
 export interface ApiResponse<T> {
   data?: T;
-  message?: string;
   error?: string;
-  details?: string;
-}
-
-export interface PaginatedResponse<T> {
-  data: T[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    pages: number;
-  };
-}
-
-// Form types
-export interface TransactionFormData {
-  amount: string;
-  type: 'income' | 'expense';
-  categoryId: string;
-  description: string;
-  date: string;
-}
-
-export interface CategoryFormData {
-  name: string;
-  color: string;
-  icon: string;
-}
-
-export interface BudgetFormData {
-  categoryId: string;
-  amount: string;
-  month: number;
-  year: number;
-}
-
-export interface GoalFormData {
-  title: string;
-  description: string;
-  targetAmount: string;
-  deadline: string;
-}
-
-// Filter types
-export interface TransactionFilters {
-  type?: 'income' | 'expense';
-  categoryId?: string;
-  startDate?: string;
-  endDate?: string;
-  page?: number;
-  limit?: number;
-}
-
-// Navigation types
-export interface NavItem {
-  label: string;
-  href: string;
-  icon: React.ComponentType<{ className?: string }>;
-  badge?: number;
+  message?: string;
 }

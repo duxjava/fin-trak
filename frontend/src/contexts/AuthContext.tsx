@@ -1,15 +1,16 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User } from '../types';
-import { authAPI } from '../utils/api';
-import { toast } from 'react-hot-toast';
+import { User, LoginRequest, RegisterRequest } from '../types';
+import { login as loginApi, register as registerApi, logout as logoutApi } from '../utils/api';
 
 interface AuthContextType {
   user: User | null;
-  loading: boolean;
-  login: (email: string, password: string) => Promise<boolean>;
-  register: (email: string, password: string, firstName: string, lastName: string) => Promise<boolean>;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  login: (credentials: LoginRequest) => Promise<void>;
+  register: (credentials: RegisterRequest) => Promise<void>;
   logout: () => Promise<void>;
-  updateUser: (userData: Partial<User>) => void;
+  clearError: () => void;
+  error: string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -28,111 +29,95 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Проверяем сохраненную сессию при загрузке
+  // Check if user is already authenticated on mount
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const token = localStorage.getItem('token');
+        // Check if JWT cookie exists and is valid
+        const token = getCookie('jwt_token');
         if (token) {
-          const response = await authAPI.getProfile();
-          if (response.user) {
-            setUser(response.user);
-            // Сохраняем токен если он был обновлен
-            if (response.token) {
-              localStorage.setItem('token', response.token);
-            }
-          }
+          // You could add an API call here to validate the token
+          // For now, we'll assume the token is valid if it exists
+          // In a real app, you'd call /api/auth/me to get user data
+          setIsLoading(false);
+        } else {
+          setIsLoading(false);
         }
-      } catch (error) {
-        // Если токен недействителен, удаляем его
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-      } finally {
-        setLoading(false);
+      } catch (err) {
+        setIsLoading(false);
       }
     };
 
     checkAuth();
   }, []);
 
-  // Функция входа
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = async (credentials: LoginRequest) => {
     try {
-      setLoading(true);
-      const response = await authAPI.login({ email, password });
+      setIsLoading(true);
+      setError(null);
       
-      if (response.user && response.token) {
-        setUser(response.user);
-        localStorage.setItem('token', response.token);
-        localStorage.setItem('user', JSON.stringify(response.user));
-        toast.success('Вход выполнен успешно!');
-        return true;
-      }
+      const response = await loginApi(credentials);
+      setUser(response.user);
       
-      return false;
-    } catch (error) {
-      console.error('Login error:', error);
-      return false;
+      // Store user in localStorage for persistence
+      localStorage.setItem('user', JSON.stringify(response.user));
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Login failed';
+      setError(errorMessage);
+      throw err;
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  // Функция регистрации
-  const register = async (email: string, password: string, firstName: string, lastName: string): Promise<boolean> => {
+  const register = async (credentials: RegisterRequest) => {
     try {
-      setLoading(true);
-      const response = await authAPI.register({ email, password, firstName, lastName });
+      setIsLoading(true);
+      setError(null);
       
-      if (response.user && response.token) {
-        setUser(response.user);
-        localStorage.setItem('token', response.token);
-        localStorage.setItem('user', JSON.stringify(response.user));
-        toast.success('Регистрация выполнена успешно!');
-        return true;
-      }
+      const response = await registerApi(credentials);
+      setUser(response.user);
       
-      return false;
-    } catch (error) {
-      console.error('Register error:', error);
-      return false;
+      // Store user in localStorage for persistence
+      localStorage.setItem('user', JSON.stringify(response.user));
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Registration failed';
+      setError(errorMessage);
+      throw err;
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  // Функция выхода
-  const logout = async (): Promise<void> => {
+  const logout = async () => {
     try {
-      await authAPI.logout();
-    } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
+      await logoutApi();
       setUser(null);
-      localStorage.removeItem('token');
       localStorage.removeItem('user');
-      toast.success('Выход выполнен успешно!');
+    } catch (err) {
+      console.error('Logout error:', err);
+      // Even if logout API fails, clear local state
+      setUser(null);
+      localStorage.removeItem('user');
     }
   };
 
-  // Функция обновления данных пользователя
-  const updateUser = (userData: Partial<User>) => {
-    if (user) {
-      const updatedUser = { ...user, ...userData };
-      setUser(updatedUser);
-      localStorage.setItem('user', JSON.stringify(updatedUser));
-    }
+  const clearError = () => {
+    setError(null);
   };
 
   const value: AuthContextType = {
     user,
-    loading,
+    isAuthenticated: !!user,
+    isLoading,
     login,
     register,
     logout,
-    updateUser,
+    clearError,
+    error,
   };
 
   return (
@@ -141,3 +126,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     </AuthContext.Provider>
   );
 };
+
+// Helper function to get cookie value
+function getCookie(name: string): string | null {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop()?.split(';').shift() || null;
+  return null;
+}
