@@ -3,13 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "npm run db:up && next dev",
+    "dev:no-migrate": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "db:generate": "drizzle-kit generate:pg",
-    "db:migrate": "drizzle-kit push:pg",
-    "db:studio": "drizzle-kit studio"
+    "db:up": "drizzle-kit up:pg",
+    "db:studio": "drizzle-kit studio",
+    "db:deploy": "./scripts/deploy-migrations.sh",
+    "postbuild": "npm run db:deploy"
   },
   "dependencies": {
     "next": "14.0.4",
@@ -32,6 +35,8 @@
     "tailwindcss": "^3.3.0",
     "eslint": "^8",
     "eslint-config-next": "14.0.4",
-    "drizzle-kit": "^0.20.6"
+    "drizzle-kit": "^0.20.6",
+    "tsx": "^4.6.2",
+    "dotenv": "^16.3.1"
   }
 }

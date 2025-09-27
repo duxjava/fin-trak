@@ -37,4 +37,6 @@ yarn-error.log*
 next-env.d.ts
 
 # drizzle
-/drizzle
+# Keep migrations in git, but ignore local database files
+/drizzle/*.db
+/drizzle/*.sqlite
