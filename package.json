@@ -3,13 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "npm run db:up && next dev",
+    "dev": "npm run db:push && next dev",
     "dev:no-migrate": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "db:generate": "drizzle-kit generate:pg",
-    "db:up": "drizzle-kit up:pg",
+    "db:push": "./scripts/load-env.sh drizzle-kit push:pg",
+    "db:up": "./scripts/load-env.sh drizzle-kit up:pg",
     "db:studio": "drizzle-kit studio",
     "db:deploy": "./scripts/deploy-migrations.sh",
     "postbuild": "npm run db:deploy"
