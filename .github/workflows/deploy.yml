@@ -1,0 +1,126 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
+    environment: staging
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Deploy to staging server
+      run: |
+        echo "Deploying to staging environment..."
+        echo "Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ github.sha }}"
+        echo "Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ github.sha }}"
+        
+        # Здесь должен быть код деплоя на staging сервер
+        # Например, через SSH или Docker Compose
+        
+        # Пример команд для деплоя через SSH:
+        # ssh user@staging-server "docker-compose pull && docker-compose up -d"
+        
+        # Или через webhook:
+        # curl -X POST "https://staging-server.com/deploy" \
+        #   -H "Authorization: Bearer ${{ secrets.DEPLOY_TOKEN }}" \
+        #   -d '{"image_tag": "${{ github.sha }}"}'
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')
+    environment: production
+    needs: [deploy-staging]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Deploy to production server
+      run: |
+        echo "Deploying to production environment..."
+        echo "Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ github.sha }}"
+        echo "Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ github.sha }}"
+        
+        # Здесь должен быть код деплоя на production сервер
+        # Рекомендуется использовать более безопасные методы для продакшена
+        
+        # Пример Blue-Green deployment:
+        # 1. Разворачиваем новую версию рядом со старой
+        # 2. Переключаем трафик на новую версию
+        # 3. Убираем старую версию
+        
+        # Пример команд:
+        # ssh user@prod-server "cd /app && ./deploy.sh ${{ github.sha }}"
+
+  # Пример деплоя через Docker Compose на удаленный сервер
+  deploy-docker-compose:
+    name: Deploy via Docker Compose
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment: staging
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup SSH
+      uses: webfactory/ssh-agent@v0.7.0
+      with:
+        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+    - name: Create deployment files
+      run: |
+        # Создаем docker-compose файл для деплоя
+        envsubst < docker-compose.yml > docker-compose.deploy.yml
+      env:
+        BACKEND_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ github.sha }}
+        FRONTEND_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ github.sha }}
+
+    - name: Copy files to server
+      run: |
+        # Копируем файлы на сервер (замените на ваши данные)
+        # scp docker-compose.deploy.yml user@your-server.com:/app/
+        echo "Files would be copied to server here"
+
+    - name: Deploy on server
+      run: |
+        # Выполняем деплой на сервере (замените на ваши данные)
+        # ssh user@your-server.com "cd /app && docker-compose -f docker-compose.deploy.yml pull && docker-compose -f docker-compose.deploy.yml up -d"
+        echo "Deployment would happen here"
+
+  # Откат к предыдущей версии
+  rollback:
+    name: Rollback
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    environment: production
+    
+    steps:
+    - name: Rollback to previous version
+      run: |
+        echo "Rolling back to previous version..."
+        # Здесь код для отката к предыдущей версии
+        # ssh user@prod-server "cd /app && ./rollback.sh"

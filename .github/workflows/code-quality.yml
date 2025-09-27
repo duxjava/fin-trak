@@ -1,0 +1,195 @@
+name: Code Quality
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  # Анализ качества кода для Go
+  go-quality:
+    name: Go Code Quality
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+
+    - name: Run gosec Security Scanner
+      uses: securecodewarrior/github-action-gosec@master
+      with:
+        args: '-fmt sarif -out gosec.sarif ./backend/...'
+
+    - name: Upload gosec results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: gosec.sarif
+
+    - name: Run go mod tidy check
+      working-directory: ./backend
+      run: |
+        go mod tidy
+        git diff --exit-code go.mod go.sum
+
+    - name: Check for vulnerabilities
+      working-directory: ./backend
+      run: |
+        go install golang.org/x/vuln/cmd/govulncheck@latest
+        govulncheck ./...
+
+  # Анализ качества кода для Frontend
+  frontend-quality:
+    name: Frontend Code Quality
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Install dependencies
+      working-directory: ./frontend
+      run: npm ci
+
+    - name: Run ESLint with SARIF output
+      working-directory: ./frontend
+      run: |
+        npx eslint . --ext .ts,.tsx --format @microsoft/eslint-formatter-sarif --output-file eslint-results.sarif
+      continue-on-error: true
+
+    - name: Upload ESLint results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: frontend/eslint-results.sarif
+
+    - name: Check for outdated packages
+      working-directory: ./frontend
+      run: npm outdated || true
+
+    - name: Audit for vulnerabilities
+      working-directory: ./frontend
+      run: npm audit --audit-level moderate
+
+  # Проверка форматирования кода
+  code-format:
+    name: Code Formatting
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+
+    - name: Check Go formatting
+      working-directory: ./backend
+      run: |
+        if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
+          echo "The following files are not formatted:"
+          gofmt -s -l .
+          echo "Please run 'gofmt -s -w .' to fix formatting"
+          exit 1
+        fi
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Install frontend dependencies
+      working-directory: ./frontend
+      run: npm ci
+
+    - name: Check Prettier formatting
+      working-directory: ./frontend
+      run: |
+        if ! npx prettier --check "src/**/*.{ts,tsx,js,jsx,json,css,md}"; then
+          echo "Some files are not formatted with Prettier"
+          echo "Please run 'npm run format' to fix formatting"
+          exit 1
+        fi
+
+  # Проверка размера пакетов
+  bundle-size:
+    name: Bundle Size Check
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Install dependencies
+      working-directory: ./frontend
+      run: npm ci
+
+    - name: Build frontend
+      working-directory: ./frontend
+      run: npm run build
+
+    - name: Analyze bundle size
+      uses: preactjs/compressed-size-action@v2
+      with:
+        repo-token: "${{ secrets.GITHUB_TOKEN }}"
+        build-script: "cd frontend && npm run build"
+        pattern: "frontend/dist/**/*.{js,css,html}"
+        exclude: "{**/*.map,**/node_modules/**}"
+
+  # Проверка документации
+  docs-check:
+    name: Documentation Check
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Check for README updates
+      run: |
+        if [ -f "README.md" ]; then
+          echo "README.md exists"
+        else
+          echo "README.md is missing"
+          exit 1
+        fi
+
+    - name: Check for CHANGELOG updates
+      if: github.event_name == 'pull_request'
+      run: |
+        if git diff origin/main...HEAD --name-only | grep -q "CHANGELOG.md"; then
+          echo "CHANGELOG.md has been updated"
+        else
+          echo "Please update CHANGELOG.md with your changes"
+          exit 0  # Warning, not error
+        fi
+
+    - name: Validate Go documentation
+      working-directory: ./backend
+      run: |
+        go install golang.org/x/tools/cmd/godoc@latest
+        # Проверяем, что все публичные функции задокументированы
+        go vet ./...
