@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"context"
 	"net/http"
 	"strings"
 	"time"
@@ -152,7 +151,7 @@ func GetEmailFromContext(c *gin.Context) (string, error) {
 func RateLimitMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Получаем IP адрес клиента
-		clientIP := c.ClientIP()
+		_ = c.ClientIP()
 		
 		// Здесь можно добавить логику rate limiting
 		// Например, проверять количество запросов в Redis

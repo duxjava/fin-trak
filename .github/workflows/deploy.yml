@@ -1,0 +1,158 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - production
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
+    environment: staging
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Deploy to staging via Docker Compose
+      run: |
+        echo "Deploying to staging environment..."
+        # Create environment file for staging
+        cat > .env.staging << EOF
+        DB_HOST=${{ secrets.STAGING_DB_HOST }}
+        DB_PORT=${{ secrets.STAGING_DB_PORT }}
+        DB_USER=${{ secrets.STAGING_DB_USER }}
+        DB_PASSWORD=${{ secrets.STAGING_DB_PASSWORD }}
+        DB_NAME=${{ secrets.STAGING_DB_NAME }}
+        REDIS_ADDR=${{ secrets.STAGING_REDIS_ADDR }}
+        REDIS_PASSWORD=${{ secrets.STAGING_REDIS_PASSWORD }}
+        JWT_SECRET=${{ secrets.STAGING_JWT_SECRET }}
+        PORT=8080
+        GIN_MODE=release
+        VITE_API_URL=${{ secrets.STAGING_API_URL }}
+        EOF
+        
+        # Deploy using docker-compose (this is a placeholder - actual deployment depends on your infrastructure)
+        echo "Deployment configuration created for staging"
+
+    - name: Health check
+      run: |
+        echo "Performing health check..."
+        # Add actual health check commands here
+        # curl -f ${{ secrets.STAGING_API_URL }}/health || exit 1
+
+    - name: Notify deployment
+      uses: 8398a7/action-slack@v3
+      if: always()
+      with:
+        status: ${{ job.status }}
+        channel: '#deployments'
+        text: 'Staging deployment ${{ job.status }}'
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')
+    environment: production
+    needs: [deploy-staging]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Deploy to production
+      run: |
+        echo "Deploying to production environment..."
+        # Create environment file for production
+        cat > .env.production << EOF
+        DB_HOST=${{ secrets.PROD_DB_HOST }}
+        DB_PORT=${{ secrets.PROD_DB_PORT }}
+        DB_USER=${{ secrets.PROD_DB_USER }}
+        DB_PASSWORD=${{ secrets.PROD_DB_PASSWORD }}
+        DB_NAME=${{ secrets.PROD_DB_NAME }}
+        REDIS_ADDR=${{ secrets.PROD_REDIS_ADDR }}
+        REDIS_PASSWORD=${{ secrets.PROD_REDIS_PASSWORD }}
+        JWT_SECRET=${{ secrets.PROD_JWT_SECRET }}
+        PORT=8080
+        GIN_MODE=release
+        VITE_API_URL=${{ secrets.PROD_API_URL }}
+        EOF
+        
+        # Deploy using your preferred method (K8s, Docker Swarm, etc.)
+        echo "Production deployment configuration created"
+
+    - name: Health check
+      run: |
+        echo "Performing production health check..."
+        # Add actual health check commands here
+        # curl -f ${{ secrets.PROD_API_URL }}/health || exit 1
+
+    - name: Notify deployment
+      uses: 8398a7/action-slack@v3
+      if: always()
+      with:
+        status: ${{ job.status }}
+        channel: '#deployments'
+        text: 'Production deployment ${{ job.status }}'
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  rollback:
+    name: Rollback Deployment
+    runs-on: ubuntu-latest
+    if: failure()
+    needs: [deploy-production]
+    environment: production
+    
+    steps:
+    - name: Rollback production deployment
+      run: |
+        echo "Rolling back production deployment..."
+        # Add rollback logic here
+        
+    - name: Notify rollback
+      uses: 8398a7/action-slack@v3
+      with:
+        status: 'warning'
+        channel: '#deployments'
+        text: 'Production deployment rolled back due to failure'
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

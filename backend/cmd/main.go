@@ -10,7 +10,8 @@ import (
 	"time"
 
 	"github.com/gin-contrib/cors"
-	"github.com/gin-contrib/rate"
+	"github.com/ulule/limiter/v3"
+	"github.com/ulule/limiter/v3/drivers/store/memory"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"github.com/redis/go-redis/v9"
@@ -60,7 +61,29 @@ func main() {
 	}))
 
 	// Rate limiting middleware
-	router.Use(rate.RateLimiter(rate.NewLimiter(100, 200))) // 100 requests per minute, burst of 200
+	store := memory.NewStore()
+	rate := limiter.Rate{
+		Period: 1 * time.Minute,
+		Limit:  100,
+	}
+	instance := limiter.New(store, rate)
+	
+	router.Use(func(c *gin.Context) {
+		context, err := instance.Get(c, c.ClientIP())
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Rate limiter error"})
+			c.Abort()
+			return
+		}
+		
+		if context.Reached {
+			c.JSON(http.StatusTooManyRequests, gin.H{"error": "Rate limit exceeded"})
+			c.Abort()
+			return
+		}
+		
+		c.Next()
+	})
 
 	// Статические файлы
 	router.Static("/static", "./static")

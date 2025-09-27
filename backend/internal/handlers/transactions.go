@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"encoding/csv"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -10,7 +9,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 
 	"personal-finance-app/internal/models"
