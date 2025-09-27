@@ -1,101 +1,41 @@
 version: '3.8'
 
 services:
-  # PostgreSQL база данных
   postgres:
     image: postgres:15-alpine
-    container_name: personal_finance_postgres
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: personal_finance
+      POSTGRES_DB: fin_trak
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./backend/migrations:/docker-entrypoint-initdb.d
     ports:
       - "5432:5432"
-    networks:
-      - personal_finance_network
-    restart: unless-stopped
-
-  # Redis для кэширования
-  redis:
-    image: redis:7-alpine
-    container_name: personal_finance_redis
-    ports:
-      - "6379:6379"
-    networks:
-      - personal_finance_network
-    restart: unless-stopped
-
-  # Go бэкенд
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: personal_finance_backend
-    environment:
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_USER=postgres
-      - DB_PASSWORD=password
-      - DB_NAME=personal_finance
-      - REDIS_ADDR=redis:6379
-      - REDIS_PASSWORD=
-      - PORT=8080
-      - GIN_MODE=release
-      - JWT_SECRET=your-super-secret-jwt-key-change-in-production
-    ports:
-      - "8080:8080"
-    depends_on:
-      - postgres
-      - redis
-    networks:
-      - personal_finance_network
-    restart: unless-stopped
     volumes:
-      - ./backend:/app
-      - /app/vendor
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
-  # React фронтенд
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: personal_finance_frontend
+  app:
+    build: .
+    restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
-      - VITE_API_URL=http://localhost:8080
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/fin_trak
+      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_SECRET: your-secret-key-change-this-in-production
+      NODE_ENV: development
     depends_on:
-      - backend
-    networks:
-      - personal_finance_network
-    restart: unless-stopped
+      postgres:
+        condition: service_healthy
     volumes:
-      - ./frontend:/app
+      - ./drizzle:/app/drizzle
+      - .:/app
       - /app/node_modules
-
-  # Nginx для проксирования (опционально)
-  nginx:
-    image: nginx:alpine
-    container_name: personal_finance_nginx
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./docker/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./docker/ssl:/etc/nginx/ssl:ro
-    depends_on:
-      - backend
-      - frontend
-    networks:
-      - personal_finance_network
-    restart: unless-stopped
+    command: npm run dev
 
 volumes:
   postgres_data:
-
-networks:
-  personal_finance_network:
-    driver: bridge

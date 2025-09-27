@@ -1,314 +1,157 @@
-# 💰 **Приложение для ведения личных финансов**
+# FinTrak - Family Finance Tracker
 
-Современное веб-приложение для управления личными финансами, построенное на **React + TypeScript** (фронтенд) и **Go + PostgreSQL** (бэкенд).
+A modern web application for tracking family finances built with Next.js 14, Auth.js, Drizzle ORM, and PostgreSQL.
 
-## ✨ **Основные возможности**
+## Features
 
-- 📊 **Управление транзакциями** - добавление, редактирование, удаление доходов и расходов
-- 🏷️ **Категоризация** - создание и управление категориями трат
-- 💸 **Бюджетирование** - установка месячных лимитов по категориям
-- 🎯 **Финансовые цели** - постановка и отслеживание целей
-- 📈 **Аналитика** - графики и диаграммы для анализа трат
-- 📁 **Импорт/Экспорт** - работа с CSV файлами
-- 🔔 **Уведомления** - предупреждения о превышении бюджета
-- 🔐 **Безопасность** - JWT аутентификация и защита данных
+- **Authentication**: Secure email/password authentication with NextAuth.js
+- **Family Groups**: Create or join family groups to track finances together
+- **Transaction Management**: Add, view, and categorize financial transactions
+- **Real-time Updates**: Server-side rendering with Next.js App Router
+- **Responsive Design**: Mobile-friendly interface with Tailwind CSS
 
-## 🛠️ **Технологический стек**
+## Tech Stack
 
-### **Backend (Go)**
-- **Язык**: Go 1.21+
-- **Фреймворк**: Gin (веб-фреймворк)
-- **База данных**: PostgreSQL 15
-- **Кэширование**: Redis
-- **Аутентификация**: JWT + bcrypt
-- **Валидация**: go-playground/validator
-- **Миграции**: Автоматическое создание таблиц
+- **Frontend**: Next.js 14 (App Router), TypeScript, Tailwind CSS
+- **Authentication**: NextAuth.js with Credentials provider
+- **Database**: PostgreSQL with Drizzle ORM
+- **Deployment**: Docker and Docker Compose
+- **Validation**: Zod for input validation
 
-### **Frontend (React)**
-- **Язык**: TypeScript
-- **Фреймворк**: React 18
-- **Сборщик**: Vite
-- **Стили**: Tailwind CSS
-- **Роутинг**: React Router DOM
-- **Формы**: React Hook Form
-- **Графики**: Recharts
-- **Уведомления**: React Hot Toast
+## Quick Start
 
-### **Инфраструктура**
-- **Контейнеризация**: Docker + Docker Compose
-- **Прокси**: Nginx (опционально)
-- **Развертывание**: Готово для VPS, Render, Railway, AWS
+### Prerequisites
 
-## 🚀 **Быстрый старт**
+- Docker and Docker Compose
+- Node.js 18+ (for local development)
 
-### **Предварительные требования**
-- Docker и Docker Compose
-- Go 1.21+ (для локальной разработки)
-- Node.js 18+ (для локальной разработки)
+### Using Docker (Recommended)
 
-### **1. Клонирование репозитория**
+1. Clone the repository:
 ```bash
 git clone <repository-url>
-cd personal-finance-app
+cd fin-trak
 ```
 
-### **2. Запуск с Docker Compose**
+2. Copy environment variables:
 ```bash
-# Запуск всех сервисов
-docker-compose up -d
-
-# Просмотр логов
-docker-compose logs -f
-
-# Остановка
-docker-compose down
+cp env.example .env
 ```
 
-### **3. Быстрый запуск (рекомендуется)**
-```bash
-# Сделать скрипт исполняемым
-chmod +x start.sh
-
-# Запустить приложение
-./start.sh
+3. Update the `.env` file with your configuration:
+```env
+DATABASE_URL=postgresql://postgres:password@localhost:5432/fin_trak
+NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_SECRET=your-secret-key-here
+NODE_ENV=development
 ```
 
-### **4. Доступ к приложению**
-- **Фронтенд**: http://localhost:3000
-- **Бэкенд API**: http://localhost:8080
-- **PostgreSQL**: localhost:5432
-- **Redis**: localhost:6379
-
-## 🔧 **Локальная разработка**
-
-### **Backend (Go)**
+4. Start the application:
 ```bash
-cd backend
-
-# Установка зависимостей
-go mod download
-
-# Создание .env файла
-cp .env.example .env
-
-# Запуск сервера
-go run cmd/main.go
+docker-compose up --build
 ```
 
-### **Frontend (React)**
+5. Run database migrations:
 ```bash
-cd frontend
+docker-compose exec app npm run db:migrate
+```
 
-# Установка зависимостей
+6. Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+### Local Development
+
+1. Install dependencies:
+```bash
 npm install
+```
 
-# Запуск в режиме разработки
+2. Start PostgreSQL (using Docker):
+```bash
+docker-compose up postgres -d
+```
+
+3. Run database migrations:
+```bash
+npm run db:migrate
+```
+
+4. Start the development server:
+```bash
 npm run dev
 ```
 
-## 📊 **Структура базы данных**
+## Database Schema
 
-### **Основные таблицы**
-- `users` - пользователи системы
-- `categories` - категории транзакций
-- `transactions` - финансовые транзакции
-- `budgets` - месячные бюджеты по категориям
-- `goals` - финансовые цели
+The application uses the following main tables:
 
-### **Пример SQL запроса**
-```sql
--- Получение расходов по категориям за текущий месяц
-SELECT 
-    c.name as category_name,
-    SUM(t.amount) as total_spent
-FROM transactions t
-JOIN categories c ON t.category_id = c.id
-WHERE t.user_id = $1 
-    AND t.type = 'expense'
-    AND EXTRACT(MONTH FROM t.date) = EXTRACT(MONTH FROM CURRENT_DATE)
-    AND EXTRACT(YEAR FROM t.date) = EXTRACT(YEAR FROM CURRENT_DATE)
-GROUP BY c.id, c.name
-ORDER BY total_spent DESC;
-```
+- **users**: User accounts with email/password authentication
+- **groups**: Family groups with unique group codes
+- **group_members**: Many-to-many relationship between users and groups
+- **transactions**: Financial transactions linked to users and groups
 
-## 🔐 **Безопасность**
+## API Routes
 
-### **Аутентификация**
-- JWT токены с HTTP-only cookies
-- Хеширование паролей с bcrypt
-- Автоматическое обновление токенов
+- `POST /api/auth/register` - User registration
+- `POST /api/auth/[...nextauth]` - NextAuth.js authentication endpoints
 
-### **Защита от атак**
-- CORS настройки
-- Rate limiting (100 запросов/минуту)
-- Валидация входных данных
-- Защита от XSS и CSRF
+## Server Actions
 
-### **Переменные окружения**
+- `createTransaction` - Add a new transaction
+- `createGroup` - Create a new family group
+- `joinGroup` - Join an existing group using group code
+
+## Security Features
+
+- Password hashing with bcrypt
+- Session-based authentication
+- Input validation with Zod
+- Group membership verification
+- Protected routes with server-side authentication
+
+## Deployment
+
+The application is configured for deployment with Docker. Update the environment variables in `docker-compose.yml` for production:
+
+- Change `NEXTAUTH_SECRET` to a secure random string
+- Update `NEXTAUTH_URL` to your production domain
+- Configure PostgreSQL credentials
+
+## Development
+
+### Database Management
+
+Generate migrations:
 ```bash
-# База данных
-DB_HOST=localhost
-DB_PORT=5432
-DB_USER=postgres
-DB_PASSWORD=password
-DB_NAME=personal_finance
-
-# Redis
-REDIS_ADDR=localhost:6379
-REDIS_PASSWORD=
-
-# JWT
-JWT_SECRET=your-super-secret-key
-
-# Сервер
-PORT=8080
-GIN_MODE=debug
+npm run db:generate
 ```
 
-## 📁 **Структура проекта**
-
-```
-personal-finance-app/
-├── backend/                 # Go бэкенд
-│   ├── cmd/                # Точка входа
-│   │   └── main.go         # Главный файл
-│   ├── internal/           # Внутренняя логика
-│   │   ├── handlers/       # HTTP обработчики
-│   │   ├── services/       # Бизнес-логика
-│   │   ├── repositories/   # Работа с БД
-│   │   ├── models/         # Модели данных
-│   │   └── middleware/     # Промежуточное ПО
-│   ├── pkg/                # Публичные пакеты
-│   │   ├── database/       # Подключение к БД
-│   │   ├── auth/           # Аутентификация
-│   │   └── utils/          # Утилиты
-│   ├── migrations/         # Миграции БД
-│   ├── go.mod              # Go модули
-│   └── Dockerfile          # Docker образ
-├── frontend/                # React фронтенд
-│   ├── src/                # Исходный код
-│   │   ├── components/     # React компоненты
-│   │   ├── pages/          # Страницы приложения
-│   │   ├── hooks/          # React хуки
-│   │   ├── utils/          # Утилиты
-│   │   ├── types/          # TypeScript типы
-│   │   └── contexts/       # React контексты
-│   ├── package.json        # NPM зависимости
-│   ├── tailwind.config.js  # Tailwind CSS
-│   ├── vite.config.ts      # Vite конфигурация
-│   └── Dockerfile          # Docker образ
-├── docker/                  # Docker конфигурация
-├── docker-compose.yml       # Docker Compose
-├── start.sh                 # Скрипт запуска
-└── README.md               # Документация
-```
-
-## 🚀 **API Endpoints**
-
-### **Аутентификация**
-- `POST /api/auth/register` - Регистрация
-- `POST /api/auth/login` - Вход
-- `POST /api/auth/logout` - Выход
-- `GET /api/auth/me` - Профиль пользователя
-
-### **Транзакции**
-- `GET /api/transactions` - Список транзакций
-- `POST /api/transactions` - Создание транзакции
-- `GET /api/transactions/:id` - Получение транзакции
-- `PUT /api/transactions/:id` - Обновление транзакции
-- `DELETE /api/transactions/:id` - Удаление транзакции
-- `POST /api/transactions/import` - Импорт CSV
-- `GET /api/transactions/export` - Экспорт CSV
-
-### **Категории**
-- `GET /api/categories` - Список категорий
-- `POST /api/categories` - Создание категории
-- `PUT /api/categories/:id` - Обновление категории
-- `DELETE /api/categories/:id` - Удаление категории
-
-### **Бюджеты**
-- `GET /api/budgets` - Список бюджетов
-- `POST /api/budgets` - Создание бюджета
-- `PUT /api/budgets/:id` - Обновление бюджета
-- `DELETE /api/budgets/:id` - Удаление бюджета
-
-### **Цели**
-- `GET /api/goals` - Список целей
-- `POST /api/goals` - Создание цели
-- `PUT /api/goals/:id` - Обновление цели
-- `DELETE /api/goals/:id` - Удаление цели
-
-### **Аналитика**
-- `GET /api/analytics/summary` - Сводка
-- `GET /api/analytics/chart` - Данные для графиков
-- `GET /api/analytics/budget-status` - Статус бюджетов
-
-## 📈 **Развертывание**
-
-### **VPS/Хостинг**
-1. Клонируйте репозиторий на сервер
-2. Настройте переменные окружения
-3. Запустите `docker-compose up -d`
-4. Настройте Nginx для проксирования
-
-### **Облачные платформы**
-- **Render**: Автоматический деплой из Git
-- **Railway**: Простое развертывание
-- **AWS**: ECS + RDS + ElastiCache
-- **Google Cloud**: Cloud Run + Cloud SQL
-
-## 🧪 **Тестирование**
-
-### **Backend тесты**
+Run migrations:
 ```bash
-cd backend
-go test ./...
+npm run db:migrate
 ```
 
-### **Frontend тесты**
+Open Drizzle Studio:
 ```bash
-cd frontend
-npm test
+npm run db:studio
 ```
 
-## 🤝 **Вклад в проект**
+### Project Structure
 
-1. Форкните репозиторий
-2. Создайте ветку для новой функции
-3. Внесите изменения
-4. Создайте Pull Request
+```
+├── app/                    # Next.js App Router pages
+│   ├── (auth)/            # Authentication pages
+│   ├── api/               # API routes
+│   ├── dashboard/         # Main dashboard
+│   └── transactions/      # Transaction management
+├── actions/               # Server actions
+├── components/            # React components
+├── lib/                   # Utilities and configurations
+│   ├── auth.ts           # NextAuth.js configuration
+│   ├── db.ts             # Database connection
+│   └── schema.ts         # Database schema
+└── drizzle/              # Database migrations
+```
 
-## 📝 **Лицензия**
+## License
 
-MIT License - см. файл [LICENSE](LICENSE)
-
-## 🆘 **Поддержка**
-
-- **Issues**: GitHub Issues
-- **Discussions**: GitHub Discussions
-- **Email**: [your-email@example.com]
-
-## 🚨 **Важные замечания**
-
-### **Для разработки**
-- Приложение находится в стадии разработки
-- Некоторые компоненты могут быть не полностью реализованы
-- Рекомендуется использовать Docker для запуска
-
-### **Для продакшена**
-- Измените JWT_SECRET в .env файле
-- Настройте HTTPS
-- Используйте production базу данных
-- Настройте мониторинг и логирование
-
----
-
-**Создано с ❤️ для управления личными финансами**
-
-## 🎯 **Следующие шаги**
-
-1. **Запустите приложение**: `./start.sh`
-2. **Изучите код**: начните с `backend/cmd/main.go` и `frontend/src/App.tsx`
-3. **Настройте базу данных**: создайте пользователя и категории
-4. **Добавьте функциональность**: реализуйте недостающие компоненты
-5. **Настройте CI/CD**: добавьте автоматическое тестирование и деплой
+MIT License - see LICENSE file for details.
