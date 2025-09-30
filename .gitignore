@@ -40,3 +40,19 @@ next-env.d.ts
 # Keep migrations in git, but ignore local database files
 /drizzle/*.db
 /drizzle/*.sqlite
+
+# debug and test files
+**/debug-*
+**/test-*
+**/*dump*
+**/*debug*
+**/*test*
+*.csv
+*.log
+*.tmp
+
+# development scripts
+scripts/clear-*
+scripts/CLEAR_*
+scripts/debug-*
+scripts/test-*

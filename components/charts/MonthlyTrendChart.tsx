@@ -1,0 +1,149 @@
+'use client';
+
+interface Transaction {
+  id: number;
+  type: string;
+  amount: string;
+  date: Date | string;
+  account: {
+    currency: {
+      id: number;
+      code: string;
+      name: string;
+      symbol: string;
+    };
+  };
+}
+
+interface MonthlyTrendChartProps {
+  transactions: Transaction[];
+  exchangeRates: any[];
+  ratesLoading: boolean;
+}
+
+export default function MonthlyTrendChart({ transactions, exchangeRates, ratesLoading }: MonthlyTrendChartProps) {
+  // Конвертируем в RUB для отображения
+  const convertToRUB = (amount: number, currencyCode: string) => {
+    if (ratesLoading || !exchangeRates.length) return amount;
+    
+    // Если валюта уже RUB, возвращаем как есть
+    if (currencyCode === 'RUB') return amount;
+    
+    const rate = exchangeRates.find(r => r.currency === currencyCode);
+    if (!rate) {
+      console.warn(`Exchange rate not found for currency: ${currencyCode}`);
+      return amount;
+    }
+    
+    // Курс хранится как "сколько рублей за единицу валюты"
+    // Поэтому умножаем сумму на курс
+    return amount * rate.rate;
+  };
+
+  // Группируем транзакции по месяцам с конвертацией валют
+  const monthlyData = transactions.reduce((acc, transaction) => {
+    const date = typeof transaction.date === 'string' ? new Date(transaction.date) : transaction.date;
+    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    const amount = Number(transaction.amount);
+    const currencyCode = transaction.account.currency.code;
+    const amountRUB = convertToRUB(amount, currencyCode);
+    
+    if (!acc[monthKey]) {
+      acc[monthKey] = { income: 0, expense: 0 };
+    }
+    
+    if (transaction.type === 'income') {
+      acc[monthKey].income += amountRUB;
+    } else if (transaction.type === 'expense') {
+      acc[monthKey].expense += amountRUB;
+    }
+    
+    return acc;
+  }, {} as Record<string, { income: number; expense: number }>);
+
+  // Сортируем по месяцам и берем последние 6 месяцев
+  const sortedMonths = Object.keys(monthlyData)
+    .sort()
+    .slice(-6);
+
+  const maxAmount = Math.max(
+    ...Object.values(monthlyData).flatMap(d => [d.income, d.expense])
+  );
+
+  return (
+    <div className="h-64">
+      {ratesLoading ? (
+        <div className="flex items-center justify-center h-full text-gray-500">
+          Загрузка данных...
+        </div>
+      ) : sortedMonths.length === 0 ? (
+        <div className="flex items-center justify-center h-full text-gray-500">
+          Нет данных для отображения
+        </div>
+      ) : (
+        <div className="h-full flex items-end space-x-4">
+          {sortedMonths.map((monthKey) => {
+            const data = monthlyData[monthKey];
+            const incomeHeight = maxAmount > 0 ? (data.income / maxAmount) * 100 : 0;
+            const expenseHeight = maxAmount > 0 ? (data.expense / maxAmount) * 100 : 0;
+            const netIncome = data.income - data.expense;
+            const netHeight = maxAmount > 0 ? Math.abs(netIncome / maxAmount) * 100 : 0;
+            
+            return (
+              <div key={monthKey} className="flex-1 flex flex-col items-center space-y-1">
+                <div className="w-full flex flex-col justify-end h-48 space-y-1">
+                  {/* Доходы */}
+                  <div 
+                    className="bg-green-500 rounded-t"
+                    style={{ height: `${incomeHeight}%` }}
+                    title={`Доходы: ${data.income.toLocaleString('ru-RU')} ₽`}
+                  ></div>
+                  
+                  {/* Расходы */}
+                  <div 
+                    className="bg-red-500"
+                    style={{ height: `${expenseHeight}%` }}
+                    title={`Расходы: ${data.expense.toLocaleString('ru-RU')} ₽`}
+                  ></div>
+                  
+                  {/* Чистый доход */}
+                  {netIncome !== 0 && (
+                    <div 
+                      className={`rounded-b ${netIncome > 0 ? 'bg-emerald-400' : 'bg-orange-400'}`}
+                      style={{ height: `${netHeight}%` }}
+                      title={`Чистый доход: ${netIncome.toLocaleString('ru-RU')} ₽`}
+                    ></div>
+                  )}
+                </div>
+                
+                {/* Месяц */}
+                <div className="text-xs text-gray-500 text-center">
+                  {new Date(monthKey + '-01').toLocaleDateString('ru-RU', { 
+                    month: 'short',
+                    year: '2-digit'
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      
+      {/* Легенда */}
+      <div className="flex items-center justify-center space-x-4 mt-4">
+        <div className="flex items-center space-x-2">
+          <div className="w-3 h-3 bg-green-500 rounded"></div>
+          <span className="text-sm text-gray-600">Доходы</span>
+        </div>
+        <div className="flex items-center space-x-2">
+          <div className="w-3 h-3 bg-red-500 rounded"></div>
+          <span className="text-sm text-gray-600">Расходы</span>
+        </div>
+        <div className="flex items-center space-x-2">
+          <div className="w-3 h-3 bg-emerald-400 rounded"></div>
+          <span className="text-sm text-gray-600">Прибыль</span>
+        </div>
+      </div>
+    </div>
+  );
+}

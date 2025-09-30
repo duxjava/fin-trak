@@ -8,6 +8,76 @@
       "when": 1758973297284,
       "tag": "0000_parallel_timeslip",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1758979885067,
+      "tag": "0001_hot_northstar",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1758981295948,
+      "tag": "0002_concerned_diamondback",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1758981950839,
+      "tag": "0003_bumpy_next_avengers",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1758986449415,
+      "tag": "0004_normal_hiroim",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1758995389084,
+      "tag": "0005_silent_mephisto",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1758996000000,
+      "tag": "0006_add_currencies",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1758997000000,
+      "tag": "0007_split_transactions",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1758998000000,
+      "tag": "0008_create_operations_view",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "5",
+      "when": 1758999000000,
+      "tag": "0009_silly_sally_floyd",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "5",
+      "when": 1759000000000,
+      "tag": "0010_create_regular_operations_view",
+      "breakpoints": true
     }
   ]
 }

@@ -12,5 +12,25 @@ export async function auth() {
   return await getServerSession(authConfig);
 }
 
-export const signIn = handler.signIn;
-export const signOut = handler.signOut;
+export async function signOut() {
+  // Для server actions нужно использовать cookies
+  const { cookies } = await import('next/headers');
+  
+  // Очищаем все NextAuth куки
+  const cookieStore = cookies();
+  const cookieNames = [
+    'next-auth.session-token',
+    '__Secure-next-auth.session-token',
+    'next-auth.csrf-token',
+    '__Host-next-auth.csrf-token',
+    'next-auth.callback-url',
+    '__Secure-next-auth.callback-url'
+  ];
+  
+  for (const cookieName of cookieNames) {
+    cookieStore.set(cookieName, '', { 
+      expires: new Date(0),
+      path: '/'
+    });
+  }
+}

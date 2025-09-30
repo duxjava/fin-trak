@@ -5,6 +5,7 @@ import { users } from './schema';
 import { eq } from 'drizzle-orm';
 
 export const authConfig = {
+  secret: process.env.NEXTAUTH_SECRET,
   pages: {
     signIn: '/sign-in',
   },

@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { db } from '@/lib/db';
-import { users } from '@/lib/schema';
+import { users, groups, groupMembers } from '@/lib/schema';
 import { signUpSchema } from '@/lib/validations';
 import { eq } from 'drizzle-orm';
+import { randomBytes } from 'crypto';
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,12 +25,33 @@ export async function POST(request: NextRequest) {
 
     // Hash password
     const hashedPassword = await bcrypt.hash(validatedData.password, 12);
+    const userId = crypto.randomUUID();
+    const groupId = randomBytes(4).toString('hex');
 
-    // Create user
-    await db.insert(users).values({
-      name: validatedData.name,
-      email: validatedData.email,
-      password: hashedPassword,
+    // Create user and default group in single transaction
+    await db.transaction(async (tx) => {
+      // Create user
+      await tx.insert(users).values({
+        id: userId,
+        name: validatedData.name,
+        email: validatedData.email,
+        password: hashedPassword,
+      });
+
+      // Create default group
+      await tx.insert(groups).values({
+        id: groupId,
+        name: 'Бюджет',
+        createdBy: userId,
+        isDefault: 'true',
+      });
+
+      // Add user as group admin
+      await tx.insert(groupMembers).values({
+        groupId,
+        userId,
+        role: 'admin',
+      });
     });
 
     return NextResponse.json({ message: 'User created successfully' });

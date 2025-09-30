@@ -1,14 +1,22 @@
 import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
-import { groups, groupMembers, transactions, users } from '@/lib/schema';
-import { eq, and, desc } from 'drizzle-orm';
-import Link from 'next/link';
-import { signOut } from '@/lib/auth';
+import { transactions, transfers, users, accounts, groups, groupMembers } from '@/lib/schema';
+import { eq, desc, and } from 'drizzle-orm';
+import DeleteTransactionButton from '@/components/DeleteTransactionButton';
+import AccountsSection from '@/components/AccountsSection';
+import TransactionsSection from '@/components/TransactionsSection';
+import Navigation from '@/components/Navigation';
 
 export const dynamic = 'force-dynamic';
 
-export default async function DashboardPage() {
+interface DashboardPageProps {
+  searchParams: {
+    group?: string;
+  };
+}
+
+export default async function DashboardPage({ searchParams }: DashboardPageProps) {
   const session = await auth();
   
   if (!session?.user?.id) {
@@ -18,147 +26,158 @@ export default async function DashboardPage() {
   // Получаем группы пользователя
   const userGroups = await db.query.groupMembers.findMany({
     where: eq(groupMembers.userId, session.user.id),
+    with: {
+      group: true,
+    },
   });
 
-  // Получаем информацию о группах
-  const groupIds = userGroups.map(ug => ug.groupId);
-  const groupsInfo = groupIds.length > 0 ? await db.query.groups.findMany({
-    where: eq(groups.id, groupIds[0]), // Пока берем первую группу
-  }) : [];
+  // Определяем текущую группу
+  let currentGroupId = '';
+  if (searchParams.group) {
+    // Проверяем, что пользователь является участником запрошенной группы
+    const requestedGroup = userGroups.find(gm => gm.groupId === searchParams.group);
+    if (requestedGroup) {
+      currentGroupId = searchParams.group;
+    }
+  }
+  
+  // Если группа не выбрана или не найдена, используем дефолтную
+  if (!currentGroupId) {
+    const defaultGroup = userGroups.find(gm => gm.group.isDefault === 'true')?.group;
+    currentGroupId = defaultGroup?.id || userGroups[0]?.groupId || '';
+  }
 
-  // Получаем транзакции для всех групп пользователя
-  const recentTransactions = groupIds.length > 0 ? await db.query.transactions.findMany({
-    where: eq(transactions.groupId, groupIds[0]), // Пока берем первую группу
-    orderBy: [desc(transactions.createdAt)],
-    limit: 10,
-  }) : [];
+  // Получаем все счета из текущей группы
+  const userAccounts = await db.query.accounts.findMany({
+    where: eq(accounts.groupId, currentGroupId),
+    with: {
+      currency: true,
+    },
+  });
 
-  // Получаем информацию о пользователях для транзакций
-  const transactionUserIds = recentTransactions.map(t => t.userId);
+  // Получаем транзакции и переводы для расчета баланса счетов
+  const allTransactions = await db.query.transactions.findMany({
+    where: eq(transactions.groupId, currentGroupId),
+  });
+
+  const allTransfers = await db.query.transfers.findMany({
+    where: eq(transfers.groupId, currentGroupId),
+  });
+
+  // Функция для расчета текущего баланса счета
+  const calculateAccountBalance = (accountId: number) => {
+    const initialBalance = Number(userAccounts.find(acc => acc.id === accountId)?.balance || '0');
+    
+    // Получаем все транзакции, которые влияют на этот счет
+    const accountTransactions = allTransactions.filter(t => t.accountId === accountId);
+    
+    // Получаем переводы, где этот счет является отправителем или получателем
+    const outgoingTransfers = allTransfers.filter(t => t.fromAccountId === accountId);
+    const incomingTransfers = allTransfers.filter(t => t.toAccountId === accountId);
+    
+    // Рассчитываем изменения баланса
+    let balanceChange = 0;
+    
+    // Обрабатываем транзакции по счету (только expense и income)
+    accountTransactions.forEach(transaction => {
+      const amount = Number(transaction.amount);
+      
+      switch (transaction.type) {
+        case 'expense':
+          balanceChange -= amount; // Расходы уменьшают баланс
+          break;
+        case 'income':
+          balanceChange += amount; // Доходы увеличивают баланс
+          break;
+      }
+    });
+    
+    // Обрабатываем исходящие переводы
+    outgoingTransfers.forEach(transfer => {
+      balanceChange -= Number(transfer.fromAmount);
+    });
+    
+    // Обрабатываем входящие переводы
+    incomingTransfers.forEach(transfer => {
+      balanceChange += Number(transfer.toAmount);
+    });
+    
+    return initialBalance + balanceChange;
+  };
+
+
+  // Рассчитываем общий баланс по валютам отдельно (только доходы и расходы)
+  const balanceByCurrency = allTransactions.reduce((acc, transaction) => {
+    const account = userAccounts.find(a => a.id === transaction.accountId);
+    if (!account) return acc;
+    
+    const currencyCode = account.currency.code;
+    const amount = Number(transaction.amount);
+    
+    if (!acc[currencyCode]) {
+      acc[currencyCode] = { income: 0, expense: 0 };
+    }
+    
+    switch (transaction.type) {
+      case 'income':
+        acc[currencyCode].income += amount;
+        break;
+      case 'expense':
+        acc[currencyCode].expense += amount;
+        break;
+    }
+    
+    return acc;
+  }, {} as Record<string, { income: number; expense: number }>);
+
+  // Показываем баланс только в RUB (основная валюта)
+  const totalBalance = balanceByCurrency['RUB'] ? 
+    balanceByCurrency['RUB'].income - balanceByCurrency['RUB'].expense : 0;
+
+  // Получаем информацию о пользователях для транзакций (для заголовка)
+  const transactionUserIds = [...new Set(allTransactions.map(t => t.userId))];
   const transactionUsers = transactionUserIds.length > 0 ? await db.query.users.findMany({
-    where: eq(users.id, transactionUserIds[0]), // Упрощаем для демо
+    where: eq(users.id, transactionUserIds[0]), // Пока упрощаем - получаем первого пользователя
   }) : [];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-100">
+      <Navigation 
+        currentGroupId={currentGroupId}
+        groups={userGroups.map(gm => ({
+          id: gm.group.id,
+          name: gm.group.name,
+          isDefault: gm.group.isDefault,
+          role: gm.role,
+        }))}
+      />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="py-6">
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 space-y-4 sm:space-y-0">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">FinTrak</h1>
-              <p className="text-gray-600">Welcome, {session.user.name}!</p>
-            </div>
-            <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
-              <Link
-                href="/transactions/add"
-                className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md whitespace-nowrap text-center"
-              >
-                Add Transaction
-              </Link>
-              <form action={async () => {
-                'use server';
-                await signOut();
-              }}>
-                <button
-                  type="submit"
-                  className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md whitespace-nowrap w-full sm:w-auto"
-                >
-                  Sign Out
-                </button>
-              </form>
+          {/* Header */}
+          <div className="mb-6">
+            <h1 className="text-3xl font-bold text-gray-900">FinTrak</h1>
+            <p className="text-gray-600">Добро пожаловать, {session.user.name}!</p>
+          </div>
+
+          {/* Fixed Accounts Section */}
+          <AccountsSection 
+            userAccounts={userAccounts}
+            totalBalance={totalBalance}
+            currentGroupId={currentGroupId}
+            allTransactions={allTransactions}
+            allTransfers={allTransfers}
+          />
+
+          {/* Transactions Section */}
+          <div className="shadow-xl rounded-2xl border border-gray-200">
+            <div className="px-6 py-6 sm:p-8">
+              <TransactionsSection 
+                groupId={currentGroupId}
+                userAccounts={userAccounts}
+              />
             </div>
           </div>
 
-          {/* Groups Section */}
-          <div className="bg-white shadow rounded-lg mb-6">
-            <div className="px-4 py-5 sm:p-6">
-              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 space-y-4 sm:space-y-0">
-                <h3 className="text-lg font-medium text-gray-900">
-                  Your Groups
-                </h3>
-                <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
-                  <Link
-                    href="/groups/create"
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md text-sm whitespace-nowrap text-center"
-                  >
-                    Create Group
-                  </Link>
-                  <Link
-                    href="/groups/join"
-                    className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm whitespace-nowrap text-center"
-                  >
-                    Join Group
-                  </Link>
-                </div>
-              </div>
-              
-              {userGroups.length > 0 ? (
-                <div className="space-y-2">
-                  {userGroups.map((userGroup) => {
-                    const groupInfo = groupsInfo.find(g => g.id === userGroup.groupId);
-                    return (
-                      <div key={userGroup.groupId} className="flex justify-between items-center p-3 bg-gray-50 rounded-md">
-                        <div>
-                          <h4 className="font-medium text-gray-900">{groupInfo?.name || 'Unknown Group'}</h4>
-                          <p className="text-sm text-gray-500">Group ID: {userGroup.groupId}</p>
-                        </div>
-                        <span className="text-sm text-gray-500">
-                          {userGroup.role}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <p className="text-gray-500 mb-4">You're not in any groups yet.</p>
-                  <p className="text-sm text-gray-400">Create a group or join an existing one to start tracking finances.</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Recent Transactions */}
-          <div className="bg-white shadow rounded-lg">
-            <div className="px-4 py-5 sm:p-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">
-                Recent Transactions
-              </h3>
-              
-              {recentTransactions.length > 0 ? (
-                <div className="space-y-3">
-                  {recentTransactions.map((transaction) => {
-                    const user = transactionUsers.find(u => u.id === transaction.userId);
-                    return (
-                      <div key={transaction.id} className="flex justify-between items-center p-3 border rounded-md">
-                        <div className="flex-1">
-                          <h4 className="font-medium text-gray-900">{transaction.description}</h4>
-                          <p className="text-sm text-gray-500">
-                            {user?.name || 'Unknown User'} • {transaction.category} • {new Date(transaction.date).toLocaleDateString()}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <span className={`font-medium ${Number(transaction.amount) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            {Number(transaction.amount) >= 0 ? '+' : ''}${Number(transaction.amount).toFixed(2)}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <p className="text-gray-500 mb-4">No transactions yet.</p>
-                  <Link
-                    href="/transactions/add"
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md"
-                  >
-                    Add First Transaction
-                  </Link>
-                </div>
-              )}
-            </div>
-          </div>
         </div>
       </div>
     </div>
