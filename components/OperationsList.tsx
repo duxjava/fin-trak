@@ -282,36 +282,6 @@ export default function OperationsList({ groupId, selectedAccounts, onAddTransac
   return (
     <>
       <div className="p-4">
-        {/* Информация о количестве операций */}
-        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-blue-800">
-              <span className="font-medium">Показано:</span> {operations.length} из {totalCount} операций
-              {selectedAccounts.length > 0 && (
-                <span className="ml-2 text-blue-600">
-                  (отфильтровано по выбранным счетам)
-                </span>
-              )}
-            </div>
-            <div className="flex items-center space-x-2">
-              <div className="flex items-center space-x-1">
-                <span className="text-xs text-gray-500">Показать по:</span>
-                <select 
-                  value={limit} 
-                  onChange={(e) => {
-                    setLimit(Number(e.target.value));
-                    loadOperations(1);
-                  }}
-                  className="text-xs border border-gray-300 rounded px-1 py-0.5"
-                >
-                  <option value={20}>20</option>
-                  <option value={50}>50</option>
-                  <option value={100}>100</option>
-                </select>
-              </div>
-            </div>
-          </div>
-        </div>
         
         <div className="space-y-4">
           {sortedDays.map((dateKey) => {
@@ -481,9 +451,6 @@ export default function OperationsList({ groupId, selectedAccounts, onAddTransac
         {/* Кнопка "Загрузить ещё" */}
         {hasMore && (
           <div className="mt-6 text-center">
-            <div className="mb-3 text-sm text-gray-600">
-              Показано {operations.length} из {totalCount} операций
-            </div>
             <button
               onClick={loadMore}
               disabled={loadingMore}
@@ -495,7 +462,7 @@ export default function OperationsList({ groupId, selectedAccounts, onAddTransac
                   <span>Загрузка...</span>
                 </div>
               ) : (
-                `Загрузить ещё (осталось ${totalCount - operations.length})`
+                'Загрузить ещё'
               )}
             </button>
             <div className="mt-2 text-xs text-gray-500">

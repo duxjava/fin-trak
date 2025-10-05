@@ -116,10 +116,6 @@ export default function StatisticsDashboard({ accounts, transactions, groupId }:
             </button>
           ))}
         </div>
-        
-        <div className="text-sm text-gray-500">
-          Показано транзакций: {filteredTransactions.length}
-        </div>
       </div>
 
       {/* Top Row - Key Metrics */}
