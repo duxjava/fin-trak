@@ -29,13 +29,12 @@ export default function GroupSelector({ groups, currentGroupId }: GroupSelectorP
   const currentGroup = groups.find(g => g.id === currentGroupId);
 
   const handleGroupSelect = (groupId: string) => {
-    // Определяем правильный параметр для текущей страницы
+    // Используем единый параметр groupId для всех страниц
     const currentPath = window.location.pathname;
-    const paramName = currentPath === '/dashboard' ? 'group' : 'groupId';
     
     // Обновляем URL с новым параметром группы
     const searchParams = new URLSearchParams(window.location.search);
-    searchParams.set(paramName, groupId);
+    searchParams.set('groupId', groupId);
     router.push(`${currentPath}?${searchParams.toString()}`);
     setIsOpen(false);
   };

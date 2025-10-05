@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic';
 
 interface DashboardPageProps {
   searchParams: {
-    group?: string;
+    groupId?: string;
   };
 }
 
@@ -33,11 +33,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   // Определяем текущую группу
   let currentGroupId = '';
-  if (searchParams.group) {
+  if (searchParams.groupId) {
     // Проверяем, что пользователь является участником запрошенной группы
-    const requestedGroup = userGroups.find(gm => gm.groupId === searchParams.group);
+    const requestedGroup = userGroups.find(gm => gm.groupId === searchParams.groupId);
     if (requestedGroup) {
-      currentGroupId = searchParams.group;
+      currentGroupId = searchParams.groupId;
     }
   }
   
